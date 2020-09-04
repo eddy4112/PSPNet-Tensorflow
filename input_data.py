@@ -178,10 +178,10 @@ def read_train_data(rgb_mean, crop_height, crop_width, classes, ignore_label, sc
     f = open(IMG_TRAIN_LIST)
     lines = f.readlines()
     img_filenames = [line.strip() for line in lines]
+    print(len(img_filenames))
 
     anno_filenames = [filename.replace(CITYSCAPE_IMG_DIR, CITYSCAPE_ANNO_DIR) for filename in img_filenames]
     anno_filenames = [filename.replace('_leftImg8bit.png', '_gtFine_labelTrainIds.png') for filename in anno_filenames]
-
     if Shuffle:
         img_filenames, anno_filenames = shuffle(img_filenames, anno_filenames)
 
