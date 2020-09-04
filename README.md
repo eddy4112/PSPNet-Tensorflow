@@ -54,6 +54,8 @@ A PSPNet([Pyramid Scene Parsing Network](http://openaccess.thecvf.com/content_cv
 
 ## Exec
 
+The people who are using Tensorflow version of 2.x, I have change several code that can working with version of 2.x.
+
 + Train
 
     + for **train + val** dataset
