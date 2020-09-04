@@ -9,13 +9,15 @@ import numpy as np
 import os
 import cv2
 import datetime
-slim = tf.contrib.slim
+import tf_slim as slim
 import model.pspnet as pspnet
 
 import input_data
 import utils.utils as Utils
 
-flags = tf.app.flags
+tf.compat.v1.disable_eager_execution()
+
+flags = tf.compat.v1.app.flags
 FLAGS = flags.FLAGS
 
 # for dataset
@@ -79,14 +81,14 @@ def cal_loss(logits, y, loss_weight=1.0):
     '''
 
     y = tf.reshape(y, shape=[-1])
-    not_ignore_mask = tf.to_float(tf.not_equal(y,
-                                               FLAGS.ignore_label)) * loss_weight
+    not_ignore_mask = tf.cast(tf.not_equal(y,
+                                               FLAGS.ignore_label), dtype=tf.float32) * loss_weight
     one_hot_labels = tf.one_hot(
         y, FLAGS.classes, on_value=1.0, off_value=0.0)
     logits = tf.reshape(logits, shape=[-1, FLAGS.classes])
-    loss = tf.losses.softmax_cross_entropy(onehot_labels=one_hot_labels, logits=logits, weights=not_ignore_mask)
+    loss = tf.compat.v1.losses.softmax_cross_entropy(onehot_labels=one_hot_labels, logits=logits, weights=not_ignore_mask)
 
-    return tf.reduce_mean(loss)
+    return tf.reduce_mean(input_tensor=loss)
 
 if FLAGS.dataset == 'train':
     print('training on train set')
@@ -100,36 +102,36 @@ elif FLAGS.dataset == 'trainval':
 else:
     raise Exception('train or trainval is needed')
 
-with tf.name_scope('input'):
-    x = tf.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.crop_height, FLAGS.crop_width, FLAGS.channels], name='x_input')
-    y = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, FLAGS.crop_height, FLAGS.crop_width], name='ground_truth')
+with tf.compat.v1.name_scope('input'):
+    x = tf.compat.v1.placeholder(dtype=tf.float32, shape=[FLAGS.batch_size, FLAGS.crop_height, FLAGS.crop_width, FLAGS.channels], name='x_input')
+    y = tf.compat.v1.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size, FLAGS.crop_height, FLAGS.crop_width], name='ground_truth')
 
 auxi_logits, logits = pspnet.PSPNet(x, is_training=True, output_stride=FLAGS.output_stride, pre_trained_model=FLAGS.pretrained_model_path, classes=FLAGS.classes)
 
 
-with tf.name_scope('regularization'):
-    train_var_list = [v for v in tf.trainable_variables()
+with tf.compat.v1.name_scope('regularization'):
+    train_var_list = [v for v in tf.compat.v1.trainable_variables()
                       if 'beta' not in v.name and 'gamma' not in v.name]
     # Add weight decay to the loss.
-    with tf.variable_scope("total_loss"):
+    with tf.compat.v1.variable_scope("total_loss"):
         l2_loss = FLAGS.weight_decay * tf.add_n(
             [tf.nn.l2_loss(v) for v in train_var_list])
 
-with tf.name_scope('loss'):
+with tf.compat.v1.name_scope('loss'):
     #reshaped_logits = tf.reshape(logits, [BATCH_SIZE, -1])
     #reshape_y = tf.reshape(y, [BATCH_SIZE, -1])
     #loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=reshape_y, logits=reshaped_logits), name='loss')
     #loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits), name='loss')
     loss_1 = cal_loss(logits, y)
-    tf.summary.scalar('loss', loss_1)
+    tf.compat.v1.summary.scalar('loss', loss_1)
     loss_2 = cal_loss(auxi_logits, y)
     loss_all = loss_1 + 0.4*loss_2 + l2_loss
     #loss_all = loss
-    tf.summary.scalar('loss_all', loss_all)
+    tf.compat.v1.summary.scalar('loss_all', loss_all)
 
-with tf.name_scope('learning_rate'):
+with tf.compat.v1.name_scope('learning_rate'):
     global_step = tf.Variable(0, trainable=False)
-    lr = tf.train.polynomial_decay(
+    lr = tf.compat.v1.train.polynomial_decay(
         learning_rate=FLAGS.initial_lr,
         global_step=global_step,
         decay_steps=FLAGS.decay_steps,
@@ -138,33 +140,33 @@ with tf.name_scope('learning_rate'):
         cycle=False,
         name=None
     )
-    tf.summary.scalar('learning_rate', lr)
+    tf.compat.v1.summary.scalar('learning_rate', lr)
 
-with tf.name_scope("opt"):
-    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+with tf.compat.v1.name_scope("opt"):
+    update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
-        optimizer = tf.train.MomentumOptimizer(learning_rate=lr, momentum=0.9).minimize(loss_all, var_list=train_var_list, global_step=global_step)
+        optimizer = tf.compat.v1.train.MomentumOptimizer(learning_rate=lr, momentum=0.9).minimize(loss_all, var_list=train_var_list, global_step=global_step)
 
 
-with tf.name_scope("mIoU"):
+with tf.compat.v1.name_scope("mIoU"):
     softmax = tf.nn.softmax(logits, axis=-1)
-    predictions = tf.argmax(softmax, axis=-1, name='predictions')
+    predictions = tf.argmax(input=softmax, axis=-1, name='predictions')
 
     train_mIoU = tf.Variable(0, dtype=tf.float32, trainable=False)
-    tf.summary.scalar('train_mIoU', train_mIoU)
+    tf.compat.v1.summary.scalar('train_mIoU', train_mIoU)
     test_mIoU = tf.Variable(0, dtype=tf.float32, trainable=False)
-    tf.summary.scalar('test_mIoU',test_mIoU)
+    tf.compat.v1.summary.scalar('test_mIoU',test_mIoU)
 
-merged = tf.summary.merge_all()
-
-
-with tf.Session() as sess:
+merged = tf.compat.v1.summary.merge_all()
 
 
-    sess.run(tf.local_variables_initializer())
-    sess.run(tf.global_variables_initializer())
+with tf.compat.v1.Session() as sess:
 
-    saver = tf.train.Saver()
+
+    sess.run(tf.compat.v1.local_variables_initializer())
+    sess.run(tf.compat.v1.global_variables_initializer())
+
+    saver = tf.compat.v1.train.Saver()
 
     # if os.path.exists(saved_ckpt_path):
     ckpt = tf.train.get_checkpoint_state(FLAGS.saved_ckpt_path)
@@ -174,8 +176,8 @@ with tf.Session() as sess:
 
     # saver.restore(sess, './checkpoint/PSPNet.model-30000')
 
-    train_summary_writer = tf.summary.FileWriter(FLAGS.saved_summary_train_path, sess.graph)
-    test_summary_writer = tf.summary.FileWriter(FLAGS.saved_summary_test_path, sess.graph)
+    train_summary_writer = tf.compat.v1.summary.FileWriter(FLAGS.saved_summary_train_path, sess.graph)
+    test_summary_writer = tf.compat.v1.summary.FileWriter(FLAGS.saved_summary_test_path, sess.graph)
 
     for i in range(0, MAX_STEPS + 1):
 
@@ -216,8 +218,8 @@ with tf.Session() as sess:
             train_mIoU_val, train_IoU_val = Utils.cal_batch_mIoU(pred_train, b_anno, FLAGS.classes)
             test_mIoU_val, test_IoU_val = Utils.cal_batch_mIoU(pred_test, b_anno_test, FLAGS.classes)
 
-            sess.run(tf.assign(train_mIoU, train_mIoU_val))
-            sess.run(tf.assign(test_mIoU, test_mIoU_val))
+            sess.run(tf.compat.v1.assign(train_mIoU, train_mIoU_val))
+            sess.run(tf.compat.v1.assign(test_mIoU, test_mIoU_val))
 
             print('------------------------------')
 
