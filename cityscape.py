@@ -11,7 +11,7 @@ import argparse
 from collections import namedtuple
 
 
-CITYSCAPE_DIR = '/PSPNet-Tensorflow/Cityscape' # cofig your data path
+CITYSCAPE_DIR = '/Volumes/Samsung_T5/Cityscape' # cofig your data path
 
 
 CITYSCAPE_IMG_DIR = os.path.join(CITYSCAPE_DIR, 'leftImg8bit')
@@ -34,9 +34,9 @@ def get_anno_file_list():
     for i in range(len(types)):
         CITYSCAPE_ANNO_DIR_type = os.path.join(CITYSCAPE_ANNO_DIR, types[i])
         dirs = os.listdir(CITYSCAPE_ANNO_DIR_type)
-        
+
         f = open(SAVED_ANNO_FILES[i], 'w')
-      
+
         length = 0
         for dir in dirs:
             CITYSCAPE_ANNO_DIR_type_dir = os.path.join(CITYSCAPE_ANNO_DIR_type, dir)
@@ -50,7 +50,7 @@ def get_img_file_list():
     for i in range(len(types)):
         CITYSCAPE_IMG_DIR_type = os.path.join(CITYSCAPE_IMG_DIR, types[i])
         dirs = os.listdir(CITYSCAPE_IMG_DIR_type)
-        
+
         f = open(SAVED_IMG_FILES[i], 'w')
 
         length = 0
@@ -66,8 +66,3 @@ if __name__ == '__main__':
 
     get_img_file_list()
     get_anno_file_list()
-
-
-
-
-
