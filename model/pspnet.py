@@ -7,10 +7,8 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 import math
-slim = tf.contrib.slim
-from tensorflow.contrib.slim.nets import resnet_v2
-from tensorflow.contrib.framework.python.ops import arg_scope
-from tensorflow.contrib.layers.python.layers import layers
+import tf_slim as slim
+from tf_slim.nets import resnet_v2
 
 #Used for BN
 _BATCH_NORM_DECAY = 0.997
@@ -26,7 +24,7 @@ def weight_variable(shape, stddev=None, name='weight'):
             stddev = math.sqrt(2. / shape[0])
     else:
         stddev = 0.1
-    initial = tf.truncated_normal(shape, stddev=stddev)
+    initial = tf.compat.v1.truncated_normal(shape, stddev=stddev)
     W = tf.Variable(initial, name=name)
 
     return W
@@ -39,14 +37,14 @@ def bias_variable(shape, name='bias'):
 
 def batch_norm(inputs, training):
 
-  return tf.layers.batch_normalization(
-      inputs=inputs, axis=-1,
-      momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
-      scale=True, training=training, fused=True)
+  return slim.layers.batch_norm(
+      inputs=inputs,
+      decay=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
+      scale=True, is_training=training, fused=True)
 
 
 def pyramid_pooling(input, is_training):
-    with tf.contrib.slim.arg_scope(resnet_v2.resnet_arg_scope(batch_norm_decay=_BATCH_NORM_DECAY)):
+    with slim.arg_scope(resnet_v2.resnet_arg_scope(batch_norm_decay=_BATCH_NORM_DECAY)):
         with tf.name_scope("pyramid_pooling"):
             input_shape = input.get_shape().as_list()
             num_output_features = input_shape[-1] // LEVEL_SIZE
@@ -59,7 +57,7 @@ def pyramid_pooling(input, is_training):
                 output_1 = batch_norm(output_1, is_training)
                 output_1 = tf.nn.relu(output_1)
 
-                output_1 = tf.image.resize_bilinear(output_1, [input_shape[1], input_shape[2]])
+                output_1 = tf.compat.v1.image.resize_bilinear(output_1, [input_shape[1], input_shape[2]])
 
             with tf.name_scope("pool_2"):
                 pool_bin_2 = tf.nn.avg_pool(input, [1, input_shape[1] // 2, input_shape[2] // 2, 1],
@@ -71,7 +69,7 @@ def pyramid_pooling(input, is_training):
                 output_2 = batch_norm(output_2, is_training)
                 output_2 = tf.nn.relu(output_2)
 
-                output_2 = tf.image.resize_bilinear(output_2, [input_shape[1], input_shape[2]])
+                output_2 = tf.compat.v1.image.resize_bilinear(output_2, [input_shape[1], input_shape[2]])
 
             with tf.name_scope("pool_3"):
                 pool_bin_3 = tf.nn.avg_pool(input, [1, input_shape[1] // 3, input_shape[2] // 3, 1],
@@ -83,7 +81,7 @@ def pyramid_pooling(input, is_training):
                 output_3 = batch_norm(output_3, is_training)
                 output_3 = tf.nn.relu(output_3)
 
-                output_3 = tf.image.resize_bilinear(output_3, [input_shape[1], input_shape[2]])
+                output_3 = tf.compat.v1.image.resize_bilinear(output_3, [input_shape[1], input_shape[2]])
 
 
             with tf.name_scope("pool_6"):
@@ -96,7 +94,7 @@ def pyramid_pooling(input, is_training):
                 output_6 = batch_norm(output_6, is_training)
                 output_6 = tf.nn.relu(output_6)
 
-                output_6 = tf.image.resize_bilinear(output_6, [input_shape[1], input_shape[2]])
+                output_6 = tf.compat.v1.image.resize_bilinear(output_6, [input_shape[1], input_shape[2]])
 
 
             input = tf.concat([input, output_1], axis=-1)
@@ -107,19 +105,19 @@ def pyramid_pooling(input, is_training):
     return input
 
 def PSPNet(inputs, is_training, output_stride, pre_trained_model, classes):
-    with tf.contrib.slim.arg_scope(resnet_v2.resnet_arg_scope(batch_norm_decay=_BATCH_NORM_DECAY)):
+    with slim.arg_scope(resnet_v2.resnet_arg_scope(batch_norm_decay=_BATCH_NORM_DECAY)):
         logits, end_points = resnet_v2.resnet_v2_101(inputs, num_classes=None, is_training=is_training,
                                                      global_pool=False, output_stride=output_stride)
 
     if is_training:
         exclude = ['resnet_v2_101' + '/logits', 'global_step']
-        variables_to_restore = tf.contrib.slim.get_variables_to_restore(exclude=exclude)
-        tf.train.init_from_checkpoint(pre_trained_model, {v.name.split(':')[0]: v for v in variables_to_restore})
+        variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
+        tf.compat.v1.train.init_from_checkpoint(pre_trained_model, {v.name.split(':')[0]: v for v in variables_to_restore})
 
     net = end_points['resnet_v2_101' + '/block4']
     encoder_output = pyramid_pooling(net, is_training)
 
-    with tf.contrib.slim.arg_scope(resnet_v2.resnet_arg_scope(batch_norm_decay=_BATCH_NORM_DECAY)):
+    with slim.arg_scope(resnet_v2.resnet_arg_scope(batch_norm_decay=_BATCH_NORM_DECAY)):
         with tf.name_scope("auli_logits"):
 
             key = 'resnet_v2_101/block3'
@@ -135,7 +133,7 @@ def PSPNet(inputs, is_training, output_stride, pre_trained_model, classes):
             bias = bias_variable([classes])
             auxi_logits = tf.nn.conv2d(auxi_logits, weight_1, [1, 1, 1, 1], padding='SAME') + bias
 
-            auxi_logits = tf.image.resize_bilinear(auxi_logits, tf.shape(inputs)[1:3])
+            auxi_logits = tf.compat.v1.image.resize_bilinear(auxi_logits, tf.shape(inputs)[1:3])
 
         with tf.name_scope("segmentation"):
             encoder_output_shape = encoder_output.get_shape().as_list()
@@ -148,7 +146,7 @@ def PSPNet(inputs, is_training, output_stride, pre_trained_model, classes):
             bias = bias_variable([classes])
             net = tf.nn.conv2d(net, weight_1, [1, 1, 1, 1], padding='SAME') + bias
 
-            logits = tf.image.resize_bilinear(net, tf.shape(inputs)[1:3])
+            logits = tf.compat.v1.image.resize_bilinear(net, tf.shape(inputs)[1:3])
 
 
 
