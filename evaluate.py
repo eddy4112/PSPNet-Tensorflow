@@ -16,14 +16,16 @@ import model.pspnet as PSPNet
 import input_data
 import utils.utils as Utils
 
-flags = tf.app.flags
+flags = tf.compat.v1.app.flags
 FLAGS = flags.FLAGS
+
+tf.compat.v1.disable_eager_execution()
 
 CITYSCAPE_ANNO_DIR = input_data.CITYSCAPE_ANNO_DIR
 
 # for dataset
-flags.DEFINE_integer('height', 1024, 'The height of raw image.')
-flags.DEFINE_integer('width', 2048, 'The width of raw image.')
+flags.DEFINE_integer('height', 600, 'The height of raw image.')
+flags.DEFINE_integer('width', 600, 'The width of raw image.')
 flags.DEFINE_integer('batch_size', 1, 'Batch size.')
 flags.DEFINE_integer('classes', 19, 'The number of classes')
 flags.DEFINE_integer('ignore_label', 255, 'The ignore label value.')
@@ -34,8 +36,8 @@ flags.DEFINE_integer('test_num', 1525, 'the number of test set.')
 flags.DEFINE_string('dataset', 'val', 'which dataset to select to predict.(val or test).')
 
 
-flags.DEFINE_integer('crop_height', 1024, 'The height of cropped image used for training.')
-flags.DEFINE_integer('crop_width', 2048, 'The width of cropped image used for training.')
+flags.DEFINE_integer('crop_height', 600, 'The height of cropped image used for training.')
+flags.DEFINE_integer('crop_width', 600, 'The width of cropped image used for training.')
 flags.DEFINE_integer('channels', 3, 'The channels of input image.')
 #flags.DEFINE_multi_float('rgb_mean', [123.15,115.90,103.06], 'RGB mean value of ImageNet.')
 flags.DEFINE_multi_float('rgb_mean', [72.39239876,82.90891754,73.15835921], 'RGB mean value of ImageNet.')
@@ -87,27 +89,27 @@ if not os.path.exists(FLAGS.saved_prediction):
 val_data = input_data.read_val_data(rgb_mean=FLAGS.rgb_mean, crop_height = FLAGS.crop_height, crop_width = FLAGS.crop_width, classes = FLAGS.classes, ignore_label = FLAGS.ignore_label, scales = FLAGS.scales)
 test_data = input_data.read_test_data(rgb_mean=FLAGS.rgb_mean, crop_height = FLAGS.crop_height, crop_width = FLAGS.crop_width, classes = FLAGS.classes, ignore_label = FLAGS.ignore_label, scales = FLAGS.scales)
 
-with tf.name_scope("input"):
+with tf.compat.v1.name_scope("input"):
 
-    x = tf.placeholder(tf.float32, [FLAGS.batch_size, FLAGS.height, FLAGS.width, 3], name='x_input')
-    y = tf.placeholder(tf.int32, [FLAGS.batch_size, FLAGS.height, FLAGS.width], name='ground_truth')
+    x = tf.compat.v1.placeholder(tf.float32, [FLAGS.batch_size, FLAGS.height, FLAGS.width, 3], name='x_input')
+    y = tf.compat.v1.placeholder(tf.int32, [FLAGS.batch_size, FLAGS.height, FLAGS.width], name='ground_truth')
 
 _, logits = PSPNet.PSPNet(x, is_training=False, output_stride=FLAGS.output_stride, pre_trained_model=FLAGS.pretrained_model_path, classes=FLAGS.classes)
 
 
 
-with tf.name_scope('prediction_and_miou'):
+with tf.compat.v1.name_scope('prediction_and_miou'):
 
-    prediction = tf.argmax(logits, axis=-1, name='predictions')
+    prediction = tf.argmax(input=logits, axis=-1, name='predictions')
 
 
 def get_val_predictions():
 
 
-    with tf.Session() as sess:
-        sess.run(tf.local_variables_initializer())
-        sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.local_variables_initializer())
+        sess.run(tf.compat.v1.global_variables_initializer())
+        saver = tf.compat.v1.train.Saver()
 
         #saver.restore(sess, './checkpoint/deeplabv3plus.model-55000')
 
@@ -159,10 +161,10 @@ def get_val_predictions():
 
 def get_test_predictions():
 
-    with tf.Session() as sess:
-        sess.run(tf.local_variables_initializer())
-        sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
+    with tf.compat.v1.Session() as sess:
+        sess.run(tf.compat.v1.local_variables_initializer())
+        sess.run(tf.compat.v1.global_variables_initializer())
+        saver = tf.compat.v1.train.Saver()
 
         #saver.restore(sess, './checkpoint/deeplabv3plus.model-55000')
 
